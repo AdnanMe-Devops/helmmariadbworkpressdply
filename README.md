@@ -1,0 +1,2 @@
+# helmmariadbworkpressdply
+HELM MARIADB WORD PRESS DEPLOYMENT IN KUBERNETEST
