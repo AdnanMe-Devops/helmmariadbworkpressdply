@@ -1,0 +1,313 @@
+Helm chart - Wordpress Installation with MariaDB on Kubernetes
+
+ we are going to install WordPress with MariaDB using the Helm Chart on Kubernetes cluster. With this installation, we are going to see - How we can upgrade as well as rollback the Helm Chart release of WordPress. This complete setup inherited the benefits of the Kubernetes .i.e. scalability and availability.
+Since we are installing WordPress, so we need to have a database running behind the WordPress application. From the database standpoint, we are going to use MariaDB. Helm chart ships all these components in a single package, so that we need not worry about installing each component separately.
+
+ we are going to use bitnami repo.
+
+Table of Content
+Prerequisites
+1  Setup up Kubernetes cluster on GCP (Google Cloud Platform)
+2 Add ‘/bitnami/wordpress’ wordpress repo
+3 Setup User account along with Username and Password for WordPress
+4 Install the WordPress helm chart
+5 Troubleshooting any deployment and service inside the Kubernetes cluster
+Conclusion
+
+
+
+1. Prerequisites
+Before we begin there are certain minimum setup requirements which we need to fulfill -
+Kubernetes Cluster - v1.12+
+Helm 3.0+
+Persistent Volume with Dynamic Volume Provisioning 
+
+Cloud Service .i.e. - GCP, AWS, DigitalOcean, Openshift
+Note 1. - This complete setup cannot be performed on the Kubernetes cluster running on a virtual machine on your desktop or laptop. Since WordPress is a multitier application with a Database, so it needs Dynamic Volume Provisioning and it cannot be done on a local virtual machine.
+
+Note 2. - We are going to use Google Cloud Platform for this setup. But the same steps can be followed on any cloud platform.
+
+
+2. Setup up Kubernetes cluster on GCP (Google Cloud Platform)
+
+
+2.1 Login the Google Cloud Platform
+The first step would be to log in and after the login goto the left navigation menu and look for the Compute section and under that look for Kubernetes Engine->Clusters
+
+
+2.2 Fill in the Cluster Details
+After selecting the Kubernetes Engine->Clusters option in the previous step now you need to fill in the details of the clusters
+
+Field	Value
+1	Name	jhooq-wordpress
+2	Zone	europe-north1-a
+3	Master Version	Static Version 1.16.13-gke.401(default)
+Refer to the following screenshot -
+
+
+After filling in the values click on create and your cluster should be ready in couple of minutes.
+
+
+2.3 Connect to Kubernetes Cluster
+Now once your Kubernetes cluster is ready you can click on Connect to connect your Kubernetes cluster.
+
+
+
+After you click on the Connect, be prompted with the option to Connect to the cluster. Go and choose Command-line access -> Run in Cloud Shell
+But copy the command before you click on Run in Cloud Shell.
+
+Here is my command which I got -
+
+gcloud container clusters get-credentials jhooq-wordpress --zone europe-north1-a --project jhooq-sprinboot-k8s-demo
+BASH
+The above command needs three parameters -
+
+Cluster name - jhooq-wordpress
+Zone - europe-north1-a
+Project - jhooq-sprinboot-k8s-demo
+Note - In a single project you can create multiple clusters.
+2.4 Authorize Cloud Shell
+After you click on Run in Cloud Shell there will be another prompt for Authorize Cloud Shell. Go ahead and click on Authorize and it should connect you to the kubernetes cluster
+
+
+
+2.5 Verify the Kubernetes Cluster setup
+The last step in the cluster setup would be to verify the cluster.
+
+Run the following command to verify the cluster -
+kubectl get nodes
+BASH
+The command should return you with -
+
+NAME                                             STATUS   ROLES    AGE   VERSION
+gke-jhooq-wordpress-default-pool-0e0e0b0b-85td   Ready    <none>   27m   v1.16.13-gke.401
+gke-jhooq-wordpress-default-pool-0e0e0b0b-9h99   Ready    <none>   27m   v1.16.13-gke.401
+gke-jhooq-wordpress-default-pool-0e0e0b0b-tzpz   Ready    <none>   27m   v1.16.13-gke.401
+BASH
+Now your Kubernetes cluster setup is complete on Google Cloud Platform
+
+
+3. Add ‘/bitnami/wordpress’ wordpress repo
+The next step would be for you to add the /bitnami/wordpress repo to your helm installation.
+
+
+3.1 Search for the ‘wordpress’ repo
+First of all you need to check how many wordpress repositories are available on the Helm Hub.
+
+Use the following command to search for the wordpress repositories.
+helm search hub wordpress
+BASH
+After running the above command it should return you with the list of repos available on the Helm Hub.
+
+URL                                                CHART VERSION  APP VERSION    DESCRIPTION                                       
+https://hub.helm.sh/charts/groundhog2k/wordpress   0.1.3          5.5.1-apache   A Helm chart for Wordpress on Kubernetes          
+https://hub.helm.sh/charts/bitnami/wordpress       10.0.3         5.5.3          Web publishing platform for building blogs and ...
+https://hub.helm.sh/charts/seccurecodebox/old-w... 2.1.0          4.0            Insecure & Outdated Wordpress Instance: Never e...
+https://hub.helm.sh/charts/fasterbytecharts/wor... 0.8.4          v0.8.4         FasterBytes WordPress Operator Helm Chart         
+https://hub.helm.sh/charts/presslabs/wordpress-... 0.10.5         0.10.5         Presslabs WordPress Operator Helm Chart           
+https://hub.helm.sh/charts/presslabs/wordpress-... 0.10.3         v0.10.3        A Helm chart for deploying a WordPress site on ...
+https://hub.helm.sh/charts/fasterbytecharts/wor... 0.10.2         v0.10.2        A Helm chart for deploying a WordPress site on ...
+https://hub.helm.sh/charts/seccurecodebox/wpscan   2.1.0          latest         A Helm chart for the WordPress security scanner...
+https://hub.helm.sh/charts/presslabs/stack         0.10.3         v0.10.3        Open-Source WordPress Infrastructure on Kubernetes
+https://hub.helm.sh/charts/fasterbytecharts/stack  0.10.2         v0.10.2        Open-Source WordPress Infrastructure on Kubernetes
+BASH
+
+we are interested in https://hub.helm.sh/charts/bitnami/wordpress.
+
+In case if the URL is too long to see then you can put --max-col-width=0, so that you can view the complete URL
+
+helm search hub wordpress  --max-col-width=0
+BASH
+
+3.2 Add ‘bitnami/wordpress’ to your repo list of Helm Chart
+After knowing the repo url now you can add it to your local Helm Chart repo list.
+But before adding the bitnami/wordpress first check whether it already exists on your repo list or not?
+
+helm repo list
+BASH
+If you haven’t added the bitnami/wordpress before then it should not show in the list.
+Alright, let us add it to your repo list -
+
+helm repo add bitnami https://charts.bitnami.com/bitnami
+BASH
+Once you add it successfully then you should see the following message.
+
+"bitnami" has been added to your repositories
+BASH
+To know more about the details of the Bitnami WordPress Helm Chart - Click Here
+
+
+3.3 Check Wordpress Version
+Before we go into the installation step of the chart, let’s check the version of the WordPress which we are going to install.
+
+Run the following command to get all the available versions -
+
+helm search repo wordpress --versions
+BASH
+It will return a long list of all the version available for WordPress
+NAME               CHART VERSION  APP VERSION    DESCRIPTION                                       
+bitnami/wordpress  10.0.3         5.5.3          Web publishing platform for building blogs and ...
+bitnami/wordpress  10.0.2         5.5.3          Web publishing platform for building blogs and ...
+bitnami/wordpress  10.0.1         5.5.3          Web publishing platform for building blogs and ...
+bitnami/wordpress  9.10.0         5.5.3          Web publishing platform for building blogs and ...
+bitnami/wordpress  9.9.3          5.5.3          Web publishing platform for building blogs and ...
+BASH
+We will go with the latest version which is 10.0.3
+
+3.4 Readme and Values
+There are a few more details which are provided along with the helm chart package.
+
+Readme.md
+This Readme.md contains the installation instructions and it can be viewed using the following command
+
+helm show readme bitnami/wordpress --version 10.0.3
+BASH
+Values
+
+helm show values bitnami/wordpress --version 10.0.3
+BASH
+Note - Here you will get a long list of values but you can skip this part because we are going to set up the username and password in the next step.
+
+
+4. Setup User account along with Username and Password for WordPress
+As Wordpress is CMS, so we need to have a user account to access it.
+To achieve this we are gonna create a complete user account and store it in wordpress-values.yaml. (This YAML config will be used later during the installation)
+
+Here is the list of values for user account -
+
+Field	Value
+1	wordpressUsernam        adnan
+2	wordpressPassword	adnan
+3	wordpressEmail	contact@adnan.com
+4	wordpressFirstName	adnan
+5	wordpressLastName	ali
+6	wordpressBlogName	adnan.com
+7	service.type	LoadBalancer
+Here are steps for creating the wordpress-values.yaml
+
+Create wordpress-values.yaml
+
+touch wordpress-values.yaml
+BASH
+Open in vi mode to update the file
+touch wordpress-values.yaml
+BASH
+Copy and paste the following values
+wordpressUsername: 
+wordpressPassword: 
+wordpressEmail: contac
+wordpressFirstName: 
+wordpressLastName: 
+wordpressBlogName: 
+service: 
+  type: LoadBalancer
+BASH
+Save and Exit the file
+
+5. Install the WordPress helm chart
+Now we have completed all the pre-requisites for the installation. Let’s start installing the WordPress helm chart
+
+
+5.1 Create a namespace - nswordpress
+I would like to install WordPress in the fresh workspace so run the following command to create the workspace.
+
+kubectl create namespace nswordpress
+BASH
+
+5.2 Verify the namespace
+You can verify the workspace by listing it out all the available workspace -
+
+kubectl get namespace
+BASH
+It should return you with the nswordpress in the list
+NAME              STATUS   AGE
+default           Active   29d
+kube-node-lease   Active   29d
+kube-public       Active   29d
+kube-system       Active   29d
+nswordpress       Active   17s
+BASH
+
+5.3 Install wordpress helm chart
+Run the following command for installation
+
+helm install wordpress bitnami/wordpress --values=wordpress-values.yaml --namespace nswordpress --version 10.0.3
+BASH
+
+
+
+Once you execute this command then it should return you with the following output
+
+NAME: wordpress
+LAST DEPLOYED: Mon Nov 23 19:39:36 2020
+NAMESPACE: nswordpress
+STATUS: deployed
+REVISION: 1
+NOTES:
+** Please be patient while the chart is being deployed **
+
+Your WordPress site can be accessed through the following DNS name from within your cluster:
+
+    wordpress.nswordpress.svc.cluster.local (port 80)
+
+To access your WordPress site from outside the cluster follow the steps below:
+
+1. Get the WordPress URL by running these commands:
+
+   export NODE_PORT=$(kubectl get --namespace nswordpress -o jsonpath="{.spec.ports[0].nodePort}" services wordpress)
+   export NODE_IP=$(kubectl get nodes --namespace nswordpress -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo "WordPress URL: http://$NODE_IP:$NODE_PORT/"
+   echo "WordPress Admin URL: http://$NODE_IP:$NODE_PORT/admin"
+
+2. Open a browser and access WordPress using the obtained URL.
+
+3. Login with the following credentials below to see your blog:
+
+  echo Username: 
+  echo Password: $(kubectl get secret --namespace nswordpress wordpress -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+BASH
+Do not worry we are gonna again break it down to understand it more -
+
+
+5.4 How to find access URL for WordPress?
+If you look at the previous output then here is a command which you need to execute from the output
+export NODE_PORT=$(kubectl get --namespace nswordpress -o jsonpath="{.spec.ports[0].nodePort}" services wordpress)
+   export NODE_IP=$(kubectl get nodes --namespace nswordpress -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo "WordPress URL: http://$NODE_IP:$NODE_PORT/"
+BASH
+It will return you with URL with IP address (This IP address can be different in your case)-
+
+http://23.231.938.998
+BASH
+
+5.5 How to find access URL for WordPress Admin Portal?
+Its also given in the previous output, so you just need to copy and execute the following command
+
+echo "WordPress Admin URL: http://$NODE_IP:$NODE_PORT/admin"
+BASH
+It will return you with URL with IP address -
+
+http://23.231.938.998/admin
+BASH
+And you can use the username -..... and password - .... for accessing the WordPress.
+
+
+6. Troubleshooting any deployment and service inside the Kubernetes cluster
+During the complete installation process if you run into any issue then I would recommend starting with the following steps for trouble shooting
+
+
+6.1 Check all the Kubernetes resources status?
+You can run the following command to know all the status of all the deployed resources inside the namespace - nswordpress
+watch -x kubectl get all --namespace nswordpress
+BASH
+All the deployment and service status should be Running
+
+
+7. Conclusion
+Here is what we did
+
+Setup the Kubernetes cluster on Google Cloud Platform
+Added /bitnami/wordpress repo to helm repo list
+Setup the user account for WordPress CMS
+Performed the WordPress installation
+Finally looked at the troubleshooting steps
